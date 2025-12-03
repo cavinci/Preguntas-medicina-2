@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedicinaMáster - Multi Asignatura</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        neon: {
+                            pink: '#f472b6',
+                            purple: '#a855f7',
+                            cyan: '#22d3ee',
+                            dark: '#0f172a',
+                            surface: '#1e293b'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- MathJax -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .option-card { transition: all 0.2s ease; }
+        .option-card:hover:not(.disabled) { transform: translateY(-2px); }
+        .dark .glow-text { text-shadow: 0 0 10px rgba(34, 211, 238, 0.5); }
+        .question-image { max-height: 300px; width: auto; object-fit: contain; border-radius: 0.5rem; margin: 0 auto; }
+        
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: #22d3ee;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .subject-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 dark:bg-neon-dark dark:text-gray-100 h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+    <!-- Header -->
+    <header class="bg-white dark:bg-neon-surface shadow-md z-10 flex-none border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="goToSubjects()">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 dark:from-neon-purple dark:to-neon-pink flex items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-heart-pulse text-white text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">
+                    <span class="text-gray-800 dark:text-white">Medicina</span><span class="text-teal-600 dark:text-neon-cyan glow-text">Máster</span>
+                </h1>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition focus:outline-none">
+                    <i class="fa-solid fa-sun text-yellow-500 dark:hidden"></i>
+                    <i class="fa-solid fa-moon text-neon-purple hidden dark:block"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow relative overflow-y-auto" id="app-container">
+        
+        <!-- PANTALLA 0: CARGA -->
+        <div id="loading-screen" class="flex flex-col items-center justify-center h-full fade-in">
+            <div class="loader mb-4"></div>
+            <h2 class="text-xl font-bold text-gray-700 dark:text-gray-200">Actualizando temario...</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Conectando con base de datos central</p>
+            <div id="error-message" class="hidden mt-4 p-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 rounded-lg max-w-md text-center text-sm"></div>
+        </div>
+
+        <!-- PANTALLA 1: SELECCIÓN DE ASIGNATURA (NUEVA) -->
+        <div id="subject-screen" class="hidden max-w-4xl mx-auto mt-10 p-6 fade-in pb-20">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Biblioteca de Asignaturas</h2>
+                <p class="text-gray-500 dark:text-gray-400">Selecciona qué materia quieres repasar hoy</p>
+            </div>
+
+            <!-- Grid de Asignaturas -->
+            <div id="subjects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Se inyectan via JS -->
+            </div>
+            
+            <!-- Botón Global Fallos -->
+            <div class="mt-12 text-center">
+                 <button id="btn-global-retry-main" onclick="startGlobalMistakesQuiz()" class="hidden inline-flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-neon-pink text-neon-pink hover:bg-neon-pink/10 font-bold transition">
+                    <i class="fa-solid fa-rotate-left"></i> Repasar mis Fallos Históricos (<span id="global-mistakes-count-main">0</span>)
+                </button>
+            </div>
+        </div>
+
+        <!-- PANTALLA 2: MENÚ DE CONFIGURACIÓN -->
+        <div id="menu-screen" class="hidden max-w-2xl mx-auto mt-10 p-6 fade-in pb-20">
+            <!-- Header con botón volver -->
+            <div class="mb-6 flex items-center gap-2">
+                <button onclick="goToSubjects()" class="text-gray-400 hover:text-teal-500 dark:hover:text-neon-cyan transition">
+                    <i class="fa-solid fa-arrow-left"></i> Volver a Asignaturas
+                </button>
+            </div>
+
+            <div class="bg-white dark:bg-neon-surface rounded-2xl shadow-xl p-8 border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 dark:bg-neon-purple/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+                <div class="relative z-10 text-center mb-6">
+                    <span class="text-xs font-bold text-teal-600 dark:text-neon-cyan uppercase tracking-wider bg-teal-50 dark:bg-neon-cyan/10 px-3 py-1 rounded-full mb-3 inline-block" id="selected-subject-badge">ASIGNATURA</span>
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Configuración del Test</h2>
+                </div>
+                
+                <div class="space-y-4 mb-8 relative z-10">
+                    <label class="block text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Selecciona el modo:</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="selectMode('study')" id="btn-mode-study" class="mode-btn ring-2 ring-teal-500 dark:ring-neon-cyan bg-teal-50 dark:bg-neon-cyan/10 p-4 rounded-xl flex flex-col items-center justify-center transition hover:bg-teal-100 dark:hover:bg-neon-cyan/20">
+                            <i class="fa-solid fa-book-open text-teal-600 dark:text-neon-cyan text-2xl mb-2"></i>
+                            <span class="font-bold text-teal-900 dark:text-neon-cyan">Estudio</span>
+                            <span class="text-xs text-teal-700 dark:text-gray-300 text-center mt-1">Feedback inmediato</span>
+                        </button>
+                        <button onclick="selectMode('exam')" id="btn-mode-exam" class="mode-btn border border-gray-200 dark:border-gray-600 p-4 rounded-xl flex flex-col items-center justify-center transition hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
+                            <i class="fa-solid fa-graduation-cap text-2xl mb-2"></i>
+                            <span class="font-bold">Examen</span>
+                            <span class="text-xs text-center mt-1">Resultados al final</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-8 relative z-10">
+                    <label class="block text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Número de preguntas:</label>
+                    <div class="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-2">
+                        <input type="range" id="question-count" min="5" max="100" value="10" class="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-teal-600 dark:accent-neon-cyan mx-3">
+                        <span id="question-count-display" class="bg-white dark:bg-gray-700 text-teal-700 dark:text-neon-cyan font-bold px-3 py-1 rounded shadow-sm min-w-[3rem] text-center border dark:border-gray-600">10</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2 text-center">Disponibles en esta materia: <span id="total-available">0</span></p>
+                </div>
+
+                <div class="space-y-3 relative z-10">
+                    <button onclick="startQuiz()" class="w-full bg-teal-600 hover:bg-teal-700 dark:bg-neon-purple dark:hover:bg-purple-600 text-white font-bold py-4 rounded-xl shadow-lg transform transition active:scale-95 flex justify-center items-center gap-2">
+                        <span>Comenzar</span> <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANTALLA 3: QUIZ -->
+        <div id="quiz-screen" class="hidden max-w-4xl mx-auto mt-6 p-4 fade-in pb-20">
+            <div class="flex flex-wrap justify-between items-end mb-6 gap-2">
+                <div>
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider" id="subject-header-label">Asignatura</span>
+                    <h3 class="text-lg font-bold text-teal-700 dark:text-neon-cyan" id="progress-text">Pregunta 1 de 10</h3>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+                        <i class="fa-regular fa-clock text-teal-600 dark:text-neon-pink"></i>
+                        <span id="timer" class="font-mono font-bold text-gray-700 dark:text-gray-200">00:00</span>
+                    </div>
+                    <button onclick="goToSubjects()" class="text-gray-400 hover:text-red-500 transition px-2" title="Salir">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mb-8 overflow-hidden">
+                <div id="progress-bar" class="bg-teal-600 dark:bg-gradient-to-r dark:from-neon-cyan dark:to-neon-purple h-1.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+            </div>
+
+            <div class="bg-white dark:bg-neon-surface rounded-2xl shadow-lg p-6 sm:p-8 border border-gray-100 dark:border-gray-700 mb-6 relative">
+                <div class="flex justify-between items-start mb-4">
+                     <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300" id="q-tag">Materia</span>
+                     <span class="text-xs font-mono text-gray-300 dark:text-gray-600 select-none">ID: <span id="q-number"></span></span>
+                </div>
+                
+                <h2 id="question-text" class="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white leading-relaxed mb-6"></h2>
+
+                <div id="question-image-container" class="mb-6 hidden flex justify-center bg-gray-50 dark:bg-gray-800 rounded-lg p-2 border border-gray-200 dark:border-gray-600"></div>
+
+                <div id="options-container" class="space-y-3"></div>
+
+                <div id="feedback-area" class="hidden mt-8 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-5 rounded-r-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fa-solid fa-circle-info text-blue-500 mt-1"></i>
+                        <div>
+                            <h4 class="font-bold text-blue-900 dark:text-blue-300 mb-1">Explicación</h4>
+                            <p id="explanation-text" class="text-blue-800 dark:text-blue-100 text-sm leading-relaxed"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-8">
+                <button id="prev-btn" onclick="prevQuestion()" disabled class="text-gray-400 hover:text-gray-600 dark:hover:text-white font-semibold py-3 px-6 rounded-xl transition duration-200 flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-chevron-left"></i> Anterior
+                </button>
+                <button id="next-btn" onclick="nextQuestion()" disabled class="bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-3 px-8 rounded-xl cursor-not-allowed transition duration-200 flex items-center gap-2 shadow-sm">
+                    Siguiente <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- PANTALLA 4: RESULTADOS -->
+        <div id="results-screen" class="hidden max-w-4xl mx-auto mt-10 p-6 fade-in pb-20">
+            <div class="bg-white dark:bg-neon-surface rounded-2xl shadow-xl p-8 text-center border-t-8 border-teal-500 dark:border-neon-purple mb-8 relative">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-50 dark:bg-gray-800 mb-4 ring-4 ring-white dark:ring-gray-700 shadow-xl -mt-16">
+                    <i class="fa-solid fa-trophy text-4xl text-teal-500 dark:text-neon-cyan"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Resultados</h2>
+                <p class="text-gray-500 dark:text-gray-400 mb-8">Resumen de la sesión: <span id="results-subject-name" class="font-bold text-teal-600 dark:text-neon-cyan"></span></p>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="p-5 bg-teal-50 dark:bg-gray-800/50 rounded-2xl border border-teal-100 dark:border-gray-700">
+                        <div class="text-4xl font-bold text-teal-600 dark:text-neon-cyan mb-1" id="final-score">0/0</div>
+                        <div class="text-xs uppercase tracking-wide text-teal-800 dark:text-gray-400 font-semibold">Aciertos</div>
+                    </div>
+                    <div class="p-5 bg-blue-50 dark:bg-gray-800/50 rounded-2xl border border-blue-100 dark:border-gray-700">
+                        <div class="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-1" id="final-percentage">0%</div>
+                        <div class="text-xs uppercase tracking-wide text-blue-800 dark:text-gray-400 font-semibold">Nota</div>
+                    </div>
+                    <div class="p-5 bg-purple-50 dark:bg-gray-800/50 rounded-2xl border border-purple-100 dark:border-gray-700">
+                        <div class="text-4xl font-bold text-purple-600 dark:text-neon-purple mb-1" id="final-time">00:00</div>
+                        <div class="text-xs uppercase tracking-wide text-purple-800 dark:text-gray-400 font-semibold">Tiempo</div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <button onclick="goToSubjects()" class="bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg shadow transition">
+                        <i class="fa-solid fa-book mr-2"></i> Cambiar Asignatura
+                    </button>
+                    <button id="btn-session-retry" onclick="startSessionMistakesQuiz()" class="hidden bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg shadow transition">
+                        <i class="fa-solid fa-rotate-right mr-2"></i> Repetir Fallos
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-6" id="review-container"></div>
+        </div>
+        
+        <footer class="py-8 text-center text-xs text-gray-400 dark:text-gray-600">
+            Elaborado por Carlos Aranda Villalobos
+        </footer>
+
+    </main>
+
+    <script>
+        // ==========================================================
+        // CONFIGURACIÓN DE DATOS (NUEVA URL)
+        // ==========================================================
+        
+        // URL corregida (sin refs/heads/ para asegurar que funcione el raw)
+        const URL_DATOS = "https://raw.githubusercontent.com/cavinci/Preguntas-medicina-2/main/imagenes/Preguntas_MedicinaMaster.json"; 
+        
+        // ==========================================================
+
+        let allQuestionsData = []; // Todas las preguntas
+        let currentSubjectQuestions = []; // Preguntas filtradas por asignatura
+        let currentSubjectName = ""; // Nombre asignatura actual
+        
+        let quizQuestions = []; // Preguntas del quiz actual
+        let currentMode = 'study'; 
+        let currentIndex = 0;
+        let score = 0;
+        let timerInterval;
+        let secondsElapsed = 0;
+        let userAnswers = []; 
+        let isAnswered = false;
+        
+        // Persistencia
+        let mistakesBank = JSON.parse(localStorage.getItem('medicinaMaster_mistakes')) || [];
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDataFromGitHub();
+            updateGlobalMistakesUI();
+        });
+
+        async function loadDataFromGitHub() {
+            try {
+                const response = await fetch(URL_DATOS);
+                if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+                
+                allQuestionsData = await response.json();
+                
+                // Analizar Asignaturas
+                renderSubjectsGrid();
+                
+                // Ocultar carga y mostrar selección de asignatura
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('subject-screen').classList.remove('hidden');
+
+            } catch (error) {
+                showError(`Error al cargar preguntas: ${error.message}. <br>Asegúrate de tener internet.`);
+            }
+        }
+
+        function renderSubjectsGrid() {
+            // Extraer asignaturas únicas
+            const subjectsSet = new Set();
+            allQuestionsData.forEach(q => {
+                if (q.asignatura) subjectsSet.add(q.asignatura);
+                else subjectsSet.add("General"); // Fallback
+            });
+            
+            const grid = document.getElementById('subjects-grid');
+            grid.innerHTML = '';
+
+            // 1. Botón "Todas las Asignaturas"
+            const allBtn = createSubjectCard("Todas las Asignaturas", allQuestionsData.length, "mix");
+            grid.appendChild(allBtn);
+
+            // 2. Botones por Asignatura
+            subjectsSet.forEach(subject => {
+                const count = allQuestionsData.filter(q => (q.asignatura || "General") === subject).length;
+                const card = createSubjectCard(subject, count, "subject");
+                grid.appendChild(card);
+            });
+        }
+
+        function createSubjectCard(title, count, type) {
+            const div = document.createElement('div');
+            div.className = "subject-card bg-white dark:bg-neon-surface p-6 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 cursor-pointer transition-all border-l-4 " + 
+                            (type === 'mix' ? "border-l-neon-pink" : "border-l-teal-500 dark:border-l-neon-cyan");
+            
+            const icon = type === 'mix' ? 'fa-layer-group' : 'fa-book-medical';
+            const colorClass = type === 'mix' ? 'text-neon-pink' : 'text-teal-600 dark:text-neon-cyan';
+
+            div.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-800 dark:text-white mb-1">${title}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">${count} preguntas disponibles</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center ${colorClass}">
+                        <i class="fa-solid ${icon} text-lg"></i>
+                    </div>
+                </div>
+            `;
+            div.onclick = () => selectSubject(title);
+            return div;
+        }
+
+        function selectSubject(subjectName) {
+            currentSubjectName = subjectName;
+            
+            if (subjectName === "Todas las Asignaturas") {
+                currentSubjectQuestions = [...allQuestionsData];
+            } else {
+                currentSubjectQuestions = allQuestionsData.filter(q => (q.asignatura || "General") === subjectName);
+            }
+
+            // Preparar Menú Configuración
+            document.getElementById('selected-subject-badge').textContent = subjectName;
+            const slider = document.getElementById('question-count');
+            const avail = document.getElementById('total-available');
+            
+            avail.textContent = currentSubjectQuestions.length;
+            slider.max = currentSubjectQuestions.length;
+            slider.value = Math.min(10, currentSubjectQuestions.length);
+            updateSliderDisplay();
+            slider.addEventListener('input', updateSliderDisplay);
+
+            // Navegar
+            document.getElementById('subject-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+        }
+
+        // --- Standard Logic ---
+
+        function updateSliderDisplay() {
+            document.getElementById('question-count-display').textContent = document.getElementById('question-count').value;
+        }
+
+        function showError(msg) {
+            const errDiv = document.getElementById('error-message');
+            errDiv.innerHTML = msg;
+            errDiv.classList.remove('hidden');
+            document.querySelector('.loader').style.display = 'none';
+        }
+
+        function updateGlobalMistakesUI() {
+            const count = mistakesBank.length;
+            document.getElementById('global-mistakes-count-main').textContent = count;
+            const btn = document.getElementById('btn-global-retry-main');
+            if (count > 0) btn.classList.remove('hidden');
+            else btn.classList.add('hidden');
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        // --- Navigation ---
+
+        function goToSubjects() {
+            clearInterval(timerInterval);
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('subject-screen').classList.remove('hidden');
+            updateGlobalMistakesUI();
+            window.scrollTo(0,0);
+        }
+
+        function selectMode(mode) {
+            currentMode = mode;
+            // Visual Toggle
+            const btnStudy = document.getElementById('btn-mode-study');
+            const btnExam = document.getElementById('btn-mode-exam');
+            const baseClass = 'mode-btn border border-gray-200 dark:border-gray-600 p-4 rounded-xl flex flex-col items-center justify-center transition hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400';
+            const activeStudy = 'mode-btn ring-2 ring-teal-500 dark:ring-neon-cyan bg-teal-50 dark:bg-neon-cyan/10 p-4 rounded-xl flex flex-col items-center justify-center transition';
+            const activeExam = 'mode-btn ring-2 ring-teal-500 dark:ring-neon-pink bg-teal-50 dark:bg-neon-pink/10 p-4 rounded-xl flex flex-col items-center justify-center transition';
+            
+            btnStudy.className = baseClass; btnExam.className = baseClass;
+            btnStudy.querySelector('span.font-bold').className = 'font-bold';
+            btnExam.querySelector('span.font-bold').className = 'font-bold';
+
+            if(mode === 'study'){
+                btnStudy.className = activeStudy;
+                btnStudy.querySelector('span.font-bold').className = 'font-bold text-teal-900 dark:text-neon-cyan';
+            } else {
+                btnExam.className = activeExam;
+                btnExam.querySelector('span.font-bold').className = 'font-bold text-teal-900 dark:text-neon-pink';
+            }
+        }
+
+        // --- Quiz Launchers ---
+
+        function startQuiz() {
+            const count = parseInt(document.getElementById('question-count').value);
+            const selected = [...currentSubjectQuestions].sort(() => 0.5 - Math.random()).slice(0, count);
+            initializeQuizSession(selected);
+        }
+
+        function startGlobalMistakesQuiz() {
+            // Filtrar preguntas de fallos dentro de TODAS las preguntas
+            const questions = allQuestionsData.filter(q => mistakesBank.includes(q.nº_pregunta));
+            if (questions.length === 0) { alert("No se encontraron preguntas."); return; }
+            questions.sort(() => 0.5 - Math.random());
+            currentSubjectName = "Repaso General de Fallos";
+            selectMode('study');
+            initializeQuizSession(questions);
+        }
+
+        function startSessionMistakesQuiz() {
+            const failedIndices = userAnswers.filter(ans => !ans.isCorrect).map(ans => ans.question.nº_pregunta);
+            const questions = currentSubjectQuestions.filter(q => failedIndices.includes(q.nº_pregunta));
+            if (questions.length === 0) { alert("¡No fallaste ninguna!"); return; }
+            questions.sort(() => 0.5 - Math.random());
+            selectMode('study');
+            initializeQuizSession(questions);
+        }
+
+        function initializeQuizSession(questions) {
+            quizQuestions = questions;
+            currentIndex = 0;
+            score = 0;
+            userAnswers = new Array(quizQuestions.length).fill(null);
+            secondsElapsed = 0;
+            
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('subject-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+            
+            document.getElementById('subject-header-label').textContent = currentSubjectName;
+            startTimer();
+            renderQuestion();
+        }
+
+        // --- Core Engine ---
+
+        function renderQuestion() {
+            const q = quizQuestions[currentIndex];
+            const existingAnswer = userAnswers[currentIndex];
+            isAnswered = !!existingAnswer;
+
+            // UI Header
+            document.getElementById('progress-text').textContent = `Pregunta ${currentIndex + 1} de ${quizQuestions.length}`;
+            document.getElementById('progress-bar').style.width = `${((currentIndex) / quizQuestions.length) * 100}%`;
+            document.getElementById('q-number').textContent = q.nº_pregunta;
+            document.getElementById('q-tag').textContent = q.asignatura || "General";
+            document.getElementById('question-text').innerHTML = parseMarkdown(q.pregunta);
+
+            // Image
+            const imgContainer = document.getElementById('question-image-container');
+            if (q.imagen) {
+                imgContainer.innerHTML = `<img src="${q.imagen}" alt="Imagen pregunta" class="question-image shadow-md dark:shadow-none">`;
+                imgContainer.classList.remove('hidden');
+            } else { imgContainer.classList.add('hidden'); }
+
+            // Feedback Visibility
+            const fbArea = document.getElementById('feedback-area');
+            if (isAnswered && currentMode === 'study') {
+                document.getElementById('explanation-text').innerHTML = parseMarkdown(q.explicacion);
+                fbArea.classList.remove('hidden');
+            } else { fbArea.classList.add('hidden'); }
+
+            // Buttons
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            prevBtn.disabled = currentIndex === 0;
+            prevBtn.className = currentIndex === 0 ? "text-gray-400 font-semibold py-3 px-6 opacity-50 cursor-not-allowed flex gap-2" : "text-gray-500 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-semibold py-3 px-6 rounded-xl transition cursor-pointer flex gap-2";
+            
+            const isLast = currentIndex === quizQuestions.length - 1;
+            nextBtn.innerHTML = isLast ? `Finalizar <i class="fa-solid fa-flag-checkered"></i>` : `Siguiente <i class="fa-solid fa-chevron-right"></i>`;
+            
+            if (isAnswered) enableNextBtn(nextBtn, isLast); else disableNextBtn(nextBtn);
+
+            // Options
+            const optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = '';
+            
+            for (const key in q.opciones) {
+                const btn = document.createElement('div');
+                btn.className = 'option-card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 cursor-pointer flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700';
+                btn.onclick = () => handleAnswer(key, btn);
+                const letter = key.replace(/^O/, '').toUpperCase();
+
+                // Re-apply state if answered
+                if (isAnswered) {
+                    btn.classList.add('cursor-default'); btn.onclick = null;
+                    const correctRaw = q.respuesta_correcta;
+                    const isCorrectKey = matchKey(key, correctRaw);
+                    const isSelected = existingAnswer.selectedKey === key;
+                    
+                    if (currentMode === 'study') {
+                        if (isCorrectKey) applyStyle(btn, 'correct');
+                        else if (isSelected && !existingAnswer.isCorrect) applyStyle(btn, 'incorrect');
+                        else btn.classList.add('opacity-50');
+                    } else {
+                        if (isSelected) applyStyle(btn, 'selected');
+                    }
+                }
+
+                btn.innerHTML += `
+                    <div class="option-circle w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold flex items-center justify-center flex-none border border-gray-200 dark:border-gray-600 transition-colors">${letter}</div>
+                    <div class="text-gray-700 dark:text-gray-200 font-medium">${parseMarkdown(q.opciones[key])}</div>
+                `;
+                optsContainer.appendChild(btn);
+                
+                // Re-apply circle icon after innerHTML
+                if (isAnswered) {
+                    const correctRaw = q.respuesta_correcta;
+                    const isCorrectKey = matchKey(key, correctRaw);
+                    const isSelected = existingAnswer.selectedKey === key;
+                     if (currentMode === 'study') {
+                        if (isCorrectKey) applyCircle(btn, 'correct');
+                        else if (isSelected && !existingAnswer.isCorrect) applyCircle(btn, 'incorrect');
+                    } else { if (isSelected) applyCircle(btn, 'selected'); }
+                }
+            }
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        function handleAnswer(key, btn) {
+            if (isAnswered) return;
+            const q = quizQuestions[currentIndex];
+            const isCorrect = matchKey(key, q.respuesta_correcta);
+            
+            userAnswers[currentIndex] = { question: q, selectedKey: key, isCorrect };
+            isAnswered = true;
+
+            const opts = document.querySelectorAll('.option-card');
+            if (currentMode === 'study') {
+                opts.forEach(opt => {
+                    opt.classList.add('disabled', 'cursor-default');
+                    // opt.onclick = null; // Optional safety
+                    // Find key from text or rebuild logic. Better use dataset if added.
+                    // Simplified: re-render is cleaner but let's do in-place for speed
+                    // Actually, re-rendering logic above handles "isAnswered" state perfectly.
+                    // Let's just re-render to apply all styles consistently without duplicating logic
+                });
+                renderQuestion(); // Re-render to show feedback immediately
+            } else {
+                renderQuestion(); // Re-render to show selection
+            }
+        }
+
+        function prevQuestion() { if(currentIndex > 0) { currentIndex--; renderQuestion(); }}
+        function nextQuestion() { if(currentIndex < quizQuestions.length-1) { currentIndex++; renderQuestion(); } else finishQuiz(); }
+
+        // --- Utils ---
+        function matchKey(k1, correctRaw) {
+            return (k1 === correctRaw) || (k1 === 'O'+correctRaw) || (k1.replace(/^O/, '') === correctRaw);
+        }
+        function applyStyle(el, type) {
+            if (type === 'correct') el.classList.add('bg-green-50', 'dark:bg-green-900/30', 'border-green-500', 'ring-1', 'ring-green-500');
+            if (type === 'incorrect') el.classList.add('bg-red-50', 'dark:bg-red-900/30', 'border-red-500');
+            if (type === 'selected') el.classList.add('ring-2', 'ring-teal-500', 'dark:ring-neon-pink', 'bg-teal-50', 'dark:bg-neon-pink/10');
+        }
+        function applyCircle(el, type) {
+            const c = el.querySelector('.option-circle');
+            if (type === 'correct') { c.className='option-circle w-8 h-8 rounded-full bg-green-500 text-white font-bold flex items-center justify-center flex-none'; c.innerHTML='<i class="fa-solid fa-check"></i>'; }
+            if (type === 'incorrect') { c.className='option-circle w-8 h-8 rounded-full bg-red-500 text-white font-bold flex items-center justify-center flex-none'; c.innerHTML='<i class="fa-solid fa-xmark"></i>'; }
+            if (type === 'selected') { c.className='option-circle w-8 h-8 rounded-full bg-teal-600 dark:bg-neon-pink text-white font-bold flex items-center justify-center flex-none'; }
+        }
+        function enableNextBtn(btn, isLast) {
+            btn.disabled = false;
+            btn.className = isLast 
+                ? "bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-neon-purple dark:to-neon-pink hover:opacity-90 text-white font-bold py-3 px-8 rounded-xl shadow-lg transform transition active:scale-95 flex items-center gap-2 cursor-pointer"
+                : "bg-teal-600 hover:bg-teal-700 dark:bg-neon-cyan dark:hover:bg-cyan-500 dark:text-gray-900 text-white font-bold py-3 px-8 rounded-xl shadow-lg transform transition active:scale-95 flex items-center gap-2 cursor-pointer";
+        }
+        function disableNextBtn(btn) {
+            btn.disabled = true;
+            btn.className = "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-3 px-8 rounded-xl cursor-not-allowed transition duration-200 flex items-center gap-2 shadow-sm";
+        }
+        function startTimer() {
+            clearInterval(timerInterval);
+            document.getElementById('timer').textContent = "00:00";
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                const m = Math.floor(secondsElapsed/60).toString().padStart(2,'0');
+                const s = (secondsElapsed%60).toString().padStart(2,'0');
+                document.getElementById('timer').textContent = `${m}:${s}`;
+            }, 1000);
+        }
+        function parseMarkdown(t) { if(!t)return""; return t.replace(/\*\*(.*?)\*\*/g, '<strong class="text-teal-900 dark:text-neon-cyan">$1</strong>'); }
+
+        // --- Results ---
+        function finishQuiz() {
+            clearInterval(timerInterval);
+            let sessionMistakes = 0; score = 0;
+            userAnswers.forEach(a => {
+                if (a.isCorrect) score++;
+                else {
+                    sessionMistakes++;
+                    if(!mistakesBank.includes(a.question.nº_pregunta)) mistakesBank.push(a.question.nº_pregunta);
+                }
+            });
+            localStorage.setItem('medicinaMaster_mistakes', JSON.stringify(mistakesBank));
+            
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('results-screen').classList.remove('hidden');
+            
+            document.getElementById('final-score').textContent = `${score}/${quizQuestions.length}`;
+            document.getElementById('final-percentage').textContent = `${Math.round((score/quizQuestions.length)*100)}%`;
+            document.getElementById('final-time').textContent = document.getElementById('timer').textContent;
+            document.getElementById('results-subject-name').textContent = currentSubjectName;
+            
+            const btnRetry = document.getElementById('btn-session-retry');
+            if(sessionMistakes>0) btnRetry.classList.remove('hidden'); else btnRetry.classList.add('hidden');
+
+            // Render Review
+            const container = document.getElementById('review-container');
+            container.innerHTML = '';
+            userAnswers.forEach((ans, idx) => {
+                const isCorr = ans.isCorrect;
+                const card = document.createElement('div');
+                card.className = `bg-white dark:bg-gray-800 border-l-4 ${isCorr ? 'border-green-500' : 'border-red-500'} rounded-lg shadow-sm p-6`;
+                
+                const q = ans.question;
+                const userText = q.opciones[ans.selectedKey];
+                let corrKey = ""; for(let k in q.opciones) if(matchKey(k, q.respuesta_correcta)) corrKey = k;
+                const corrText = q.opciones[corrKey];
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-bold text-gray-400 uppercase">P.${idx+1} (${q.asignatura||'Gen'})</span>
+                        ${isCorr ? '<span class="text-green-500 text-xs font-bold">CORRECTA</span>' : '<span class="text-red-500 text-xs font-bold">INCORRECTA</span>'}
+                    </div>
+                    <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">${parseMarkdown(q.pregunta)}</h4>
+                    ${q.imagen ? `<img src="${q.imagen}" class="max-h-32 mb-4 rounded border dark:border-gray-600">` : ''}
+                    <div class="text-sm grid gap-2">
+                         <div class="${isCorr?'text-green-700 dark:text-green-400':'text-red-700 dark:text-red-400'} font-medium">Tu respuesta: ${parseMarkdown(userText)}</div>
+                         ${!isCorr ? `<div class="text-green-700 dark:text-green-400 font-medium">Correcta: ${parseMarkdown(corrText)}</div>` : ''}
+                    </div>
+                    <div class="mt-3 text-xs text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
+                        <i class="fa-solid fa-info-circle"></i> ${parseMarkdown(q.explicacion)}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            window.scrollTo(0,0);
+        }
+    </script>
+</body>
+</html>
