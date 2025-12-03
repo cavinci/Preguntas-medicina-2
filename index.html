@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MedicinaMáster - Plataforma de Estudio</title>
+    
+    <!-- INICIO: OPEN GRAPH / WHATSAPP PREVIEW -->
+    <meta property="og:title" content="MedicinaMáster: Tu Plataforma de Repaso">
+    <meta property="og:description" content="Simulacros de exámenes y banco de fallos por asignatura y convocatoria.">
+    <meta property="og:image" content="https://cavinci.github.io/Medicina-Master/assets/logo_share.png"> 
+    <meta property="og:url" content="https://cavinci.github.io/Medicina-Master/">
+    <meta property="og:type" content="website">
+    <!-- FIN: OPEN GRAPH -->
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -236,7 +245,7 @@
             </div>
         </div>
 
-        <!-- 3. PANTALLA DE QUIZ (Revertido a 1 Columna) -->
+        <!-- 3. PANTALLA DE QUIZ -->
         <div id="quiz-screen" class="hidden w-full max-w-3xl mx-auto p-4 md:p-6 fade-in pb-20">
             <!-- Header Quiz -->
             <div class="flex items-center justify-between mb-6 text-xs font-medium text-brand-muted border-b border-gray-200 dark:border-slate-700 pb-4">
@@ -376,7 +385,12 @@
                 const res = await fetch(URL_DATOS + cacheBuster);
                 if (!res.ok) throw new Error("Error red");
                 allData = await res.json();
-                allData.forEach(q => { if(!q.asignatura) q.asignatura = "General"; });
+                
+                allData.forEach(q => { 
+                    if(!q.asignatura) q.asignatura = "General";
+                    // Asegurar que todas las preguntas tengan un ID para evitar fallos en el banco
+                    if(!q.nº_pregunta) q.nº_pregunta = Math.floor(Math.random() * 1000000000); 
+                });
 
                 renderSubjectsDashboard();
                 updateUIStats();
@@ -397,6 +411,7 @@
             else btnMistakes.classList.add('hidden');
 
             document.getElementById('stats-total-tests').textContent = stats.tests || 0;
+            document.getElementById('stats-total-q').textContent = stats.total || 0;
             document.getElementById('stats-mistakes').textContent = mistakesBank.length;
             
             let perf = 0;
@@ -404,7 +419,6 @@
                 perf = Math.round((stats.correct / stats.total) * 100);
             }
             document.getElementById('global-perf-display').textContent = perf + "%";
-            document.getElementById('stats-total-q').textContent = stats.total || 0;
         }
 
         function resetStats() {
@@ -412,16 +426,13 @@
                 localStorage.removeItem('medicinaMaster_mistakes');
                 localStorage.removeItem('medicinaMaster_stats');
                 
-                // Reiniciar variables en memoria
                 mistakesBank = [];
                 stats = { tests: 0, correct: 0, total: 0 };
                 
-                // Actualizar interfaz
                 updateUIStats();
                 
-                // Recargar dashboard si estamos ahí para que se oculten botones
                 if (!document.getElementById('subject-screen').classList.contains('hidden')) {
-                    renderSubjectsDashboard(); // Opcional, por si afectara a algo visual
+                    renderSubjectsDashboard(); 
                 }
                 
                 alert("Estadísticas reiniciadas correctamente.");
@@ -440,10 +451,8 @@
                 subjects[s]++;
             });
 
-            // Card "Todo"
             grid.appendChild(createSubjectCard("Todas las Asignaturas", allData.length, "all"));
 
-            // Cards Asignaturas
             Object.keys(subjects).sort().forEach(sub => {
                 grid.appendChild(createSubjectCard(sub, subjects[sub], "sub"));
             });
@@ -528,7 +537,6 @@
             const examIcon = btnE.querySelector('i');
             const examText = btnE.querySelector('div.text-sm');
 
-            // Reset base
             const baseClass = "p-4 rounded-xl border border-gray-200 dark:border-slate-600 text-center transition opacity-50 hover:opacity-100 hover:bg-gray-50 dark:hover:bg-slate-700";
             const textBase = "text-sm font-bold text-gray-500 dark:text-gray-400";
             const iconBase = "text-xl mb-1 text-gray-400 dark:text-gray-500";
@@ -652,7 +660,6 @@
                             btn.classList.add('opacity-40');
                         }
                     } else { 
-                        // Exam Mode: Marked but re-clickable
                         btn.onclick = () => handleAnswer(k);
                         if (isSel) {
                             btn.classList.add('ring-2', 'ring-brand-accent', 'bg-brand-accent/5');
